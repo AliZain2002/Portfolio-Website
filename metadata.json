@@ -1,0 +1,6 @@
+{
+  "name": "Ali Zain Hemani Portfolio",
+  "description": "Interactive playing card-themed developer portfolio for Ali Zain Hemani",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
