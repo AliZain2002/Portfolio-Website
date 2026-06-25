@@ -9,11 +9,13 @@ import {
   Award, 
   BookOpen, 
   Briefcase, 
-  ChevronRight 
+  ChevronRight,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { cardsData, projectsData, experiencesData, educationData, certificationsData, skillsData } from './data';
 import { SuitType } from './types';
-import { playCardFlipSound, playCardsFallingSound } from './utils';
+import { playCardFlipSound, playCardsFallingSound, getMutedState, setMutedState, ensureAudioContext } from './utils';
 
 function Typewriter() {
   const roles = [
@@ -479,8 +481,16 @@ function IntroScreen({ onComplete }: IntroScreenProps) {
 
     const playSound = () => {
       if (hasPlayed) return;
-      hasPlayed = true;
-      playCardsFallingSound();
+      const ctx = ensureAudioContext();
+      if (ctx) {
+        if (ctx.state === 'running') {
+          hasPlayed = true;
+          playCardsFallingSound();
+        } else {
+          // Attempt to play (might be muted/silent due to autoplay), but don't mark as played yet
+          playCardsFallingSound();
+        }
+      }
     };
 
     // Attempt to play immediately on mount
@@ -488,7 +498,14 @@ function IntroScreen({ onComplete }: IntroScreenProps) {
 
     // To robustly handle browser autoplay restrictions, trigger the falling sound on first click or touch
     const handleFirstInteraction = () => {
-      playSound();
+      const ctx = ensureAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(() => {
+          playSound();
+        });
+      } else {
+        playSound();
+      }
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
     };
@@ -641,6 +658,8 @@ export default function App() {
   const [showIntro, setShowIntro] = useState(true);
   const [animatingSuit, setAnimatingSuit] = useState<SuitType | null>(null);
   const [activePanel, setActivePanel] = useState<SuitType | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [isMuted, setIsMuted] = useState(getMutedState());
 
   // Handle ESC key to close any active modal panels
   useEffect(() => {
@@ -666,6 +685,9 @@ export default function App() {
   }, [activePanel, showIntro]);
 
   const handleCardClick = (suit: SuitType) => {
+    // Capture scroll position immediately before animating
+    setScrollTop(window.scrollY);
+    
     // Play audio effect
     playCardFlipSound();
     
@@ -677,6 +699,20 @@ export default function App() {
       setAnimatingSuit(null);
       setActivePanel(suit);
     }, 680);
+  };
+
+  const toggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    setMutedState(nextMuted);
+    
+    // Warm up and resume context immediately when unmuting
+    if (!nextMuted) {
+      const ctx = ensureAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(console.warn);
+      }
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>, cardId: SuitType) => {
@@ -728,6 +764,23 @@ export default function App() {
   return (
     <div className="relative min-h-screen felt-bg text-white font-sans selection:bg-red-600 selection:text-white pb-16 overflow-x-hidden">
       
+      {/* ── AUDIO CONTROL BUTTON (MUTE/UNMUTE) ── */}
+      <button
+        onClick={toggleMute}
+        className={`fixed top-4 right-4 sm:top-5 sm:right-5 z-[110] p-2 rounded-full border transition-all duration-300 backdrop-blur-md cursor-pointer active:scale-95 ${
+          isMuted 
+            ? 'border-red-500/20 hover:border-red-500/50 bg-neutral-950/80 text-red-500 hover:shadow-[0_0_12px_rgba(239,68,68,0.25)]' 
+            : 'border-[#d4af37]/20 hover:border-[#d4af37]/50 bg-neutral-950/80 text-[#d4af37] hover:shadow-[0_0_12px_rgba(212,175,55,0.25)]'
+        }`}
+        title={isMuted ? "Unmute Audio" : "Mute Audio"}
+      >
+        {isMuted ? (
+          <VolumeX className="w-4 h-4 text-red-500 filter drop-shadow-[0_0_3px_rgba(239,68,68,0.4)]" />
+        ) : (
+          <Volume2 className="w-4 h-4 text-[#d4af37] filter drop-shadow-[0_0_3px_rgba(212,175,55,0.4)]" />
+        )}
+      </button>
+
       {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
 
       <div className={`transition-all duration-1000 ease-out ${
@@ -976,9 +1029,19 @@ export default function App() {
         </div>
       </main>
 
+      {/* ── FOOTER ── */}
+      <footer className="relative z-10 text-center pt-16 px-4 text-xs tracking-widest text-white/30 uppercase font-semibold">
+        <p>Ali Zain Hemani &nbsp;<span className="text-red-500">♠ ♥ ♣ ♦</span>&nbsp; Karachi, Pakistan &nbsp;·&nbsp; 2026</p>
+      </footer>
+
+      </div>
+
       {/* ── CARD FLIP ANIMATION OVERLAY ── */}
       {animatingSuit && (
-        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div 
+          className="absolute inset-x-0 h-screen z-50 pointer-events-none flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          style={{ top: `${scrollTop}px` }}
+        >
           <div className="w-[180px] h-[260px] sm:w-[220px] sm:h-[320px] [perspective:1000px]">
             <div 
               className="w-full h-full [transform-style:preserve-3d] rounded-2xl relative"
@@ -1032,19 +1095,20 @@ export default function App() {
 
       {/* 1. HEARTS - ABOUT ME PANEL */}
       <div 
-        className={`fixed inset-0 bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-4 transition-opacity duration-300 ${
+        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'hearts' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ top: `${scrollTop}px` }}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/90 text-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
             activePanel === 'hearts' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
             <div className="flex items-center gap-4">
               <span className="text-4xl text-red-500 leading-none filter drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">♥</span>
               <div>
@@ -1063,7 +1127,7 @@ export default function App() {
           </div>
 
           {/* Body */}
-          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
+          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             <p className="text-base sm:text-lg leading-relaxed text-white/80">
               Hey — I'm <strong className="text-red-500 font-bold">Ali Zain Hemani</strong>, a Computer Science undergraduate based in <strong className="text-red-500 font-bold">Karachi, Pakistan</strong>. 
               I call myself the <strong className="text-red-500 font-bold">Jack of All Trades</strong> because I genuinely don't believe in boxing myself into one lane. 
@@ -1130,19 +1194,20 @@ export default function App() {
 
       {/* 2. CLUBS - PROJECTS PANEL */}
       <div 
-        className={`fixed inset-0 bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-4 transition-opacity duration-300 ${
+        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'clubs' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ top: `${scrollTop}px` }}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/90 text-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
             activePanel === 'clubs' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
             <div className="flex items-center gap-4">
               <span className="text-4xl text-[#d4af37] leading-none filter drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]">♣</span>
               <div>
@@ -1161,7 +1226,7 @@ export default function App() {
           </div>
 
           {/* Body */}
-          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
+          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             
             {/* Project Hero Banner with glass outline */}
             <div className="flex items-center gap-5 bg-gradient-to-r from-neutral-900/90 to-neutral-900/50 text-white rounded-xl p-5 border-l-4 border-[#d4af37] border border-white/5">
@@ -1245,19 +1310,20 @@ export default function App() {
 
       {/* 3. DIAMONDS - EXPERIENCE PANEL */}
       <div 
-        className={`fixed inset-0 bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-4 transition-opacity duration-300 ${
+        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'diamonds' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ top: `${scrollTop}px` }}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/90 text-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
             activePanel === 'diamonds' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
             <div className="flex items-center gap-4">
               <span className="text-4xl text-red-500 leading-none filter drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">♦</span>
               <div>
@@ -1276,7 +1342,7 @@ export default function App() {
           </div>
 
           {/* Body */}
-          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
+          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             
             <h4 className="font-cinzel text-xs tracking-[4px] uppercase text-white/40 font-bold border-b border-white/5 pb-2">Work Experience</h4>
             
@@ -1336,19 +1402,20 @@ export default function App() {
 
       {/* 4. SPADES - SKILLS PANEL */}
       <div 
-        className={`fixed inset-0 bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-4 transition-opacity duration-300 ${
+        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'spades' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
+        style={{ top: `${scrollTop}px` }}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/90 text-white rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
             activePanel === 'spades' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
             <div className="flex items-center gap-4">
               <span className="text-4xl text-[#d4af37] leading-none filter drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]">♠</span>
               <div>
@@ -1367,7 +1434,7 @@ export default function App() {
           </div>
 
           {/* Body */}
-          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
+          <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             {skillsData.map((group, gIdx) => (
               <div key={gIdx} className="space-y-3">
                 <h4 className="font-cinzel text-xs tracking-[3px] uppercase text-white/40 font-bold border-b border-white/5 pb-2">
@@ -1391,11 +1458,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── FOOTER ── */}
-      <footer className="relative z-10 text-center pt-16 px-4 text-xs tracking-widest text-white/30 uppercase font-semibold">
-        <p>Ali Zain Hemani &nbsp;<span className="text-red-500">♠ ♥ ♣ ♦</span>&nbsp; Karachi, Pakistan &nbsp;·&nbsp; 2026</p>
-      </footer>
-      </div>
       <CustomCursor />
     </div>
   );

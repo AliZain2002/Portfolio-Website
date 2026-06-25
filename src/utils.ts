@@ -2,6 +2,34 @@
  * Card flip sound generator using the Web Audio API
  */
 let audioCtx: AudioContext | null = null;
+let isMutedGlobal = false;
+
+// Initialize isMutedGlobal from localStorage if available
+if (typeof window !== 'undefined') {
+  try {
+    const saved = localStorage.getItem('app-audio-muted');
+    if (saved) {
+      isMutedGlobal = saved === 'true';
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+export function getMutedState(): boolean {
+  return isMutedGlobal;
+}
+
+export function setMutedState(muted: boolean) {
+  isMutedGlobal = muted;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('app-audio-muted', String(muted));
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+}
 
 export function ensureAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -26,6 +54,7 @@ export function ensureAudioContext(): AudioContext | null {
 }
 
 export function playCardFlipSound() {
+  if (isMutedGlobal) return;
   const ctx = ensureAudioContext();
   if (!ctx) return;
   
@@ -82,6 +111,7 @@ export function playCardFlipSound() {
 }
 
 export function playCardsFallingSound() {
+  if (isMutedGlobal) return;
   const ctx = ensureAudioContext();
   if (!ctx) return;
   
@@ -91,8 +121,8 @@ export function playCardsFallingSound() {
     const duration = 2.0; // Total duration in seconds
     
     for (let i = 0; i < numCards; i++) {
-      // Stagger the cards with slight organic randomness
-      const delay = (i / numCards) * duration + Math.random() * 0.12;
+      // For the first card, play instantly at 0 delay to remove any latency on load/interaction.
+      const delay = i === 0 ? 0 : (i / numCards) * duration + Math.random() * 0.08;
       const cardTime = now + delay;
       
       // 1. Shorter papery swish sound using custom white noise burst
