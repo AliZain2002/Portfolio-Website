@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Space Grotesk", sans-serif;
+  --font-serif: "Playfair Display", serif;
+  --font-cinzel: "Cinzel", serif;
+}
+
 @layer utilities {
   .perspective-1000 {
     perspective: 1000px;
@@ -14,8 +20,13 @@
 }
 
 @keyframes floatSuit {
-  0%, 100% { transform: translateY(0) rotate(-4deg); }
-  50%       { transform: translateY(-16px) rotate(4deg); }
+  0%, 100% { transform: translateY(0) rotate(-4deg) scale(1); }
+  50%       { transform: translateY(-20px) rotate(4deg) scale(1.05); }
+}
+
+@keyframes floatSuitSlow {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(0.9); }
+  50%       { transform: translateY(-15px) rotate(-5deg) scale(1); }
 }
 
 @keyframes bigFlip {
@@ -27,22 +38,135 @@
 }
 
 @keyframes dealCard {
-  from { opacity: 0; transform: translateY(-60px) rotate(-8deg); }
-  to { opacity: 1; transform: translateY(0) rotate(0deg); }
+  from { opacity: 0; transform: translateY(-50px) rotate(-6deg) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+}
+
+@keyframes pulseAmbient {
+  0%, 100% { transform: scale(1); opacity: 0.2; }
+  50%       { transform: scale(1.15); opacity: 0.35; }
+}
+
+@keyframes floatParticle {
+  0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.1; }
+  50% { transform: translateY(-30px) translateX(15px); opacity: 0.3; }
 }
 
 .animate-float-suit {
-  animation: floatSuit 14s ease-in-out infinite;
+  animation: floatSuit 12s ease-in-out infinite;
+}
+
+.animate-float-suit-slow {
+  animation: floatSuitSlow 18s ease-in-out infinite;
 }
 
 .animate-deal-card {
-  animation: dealCard 0.6s cubic-bezier(.22,1,.36,1) forwards;
+  animation: dealCard 0.75s cubic-bezier(.16,1,.3,1) forwards;
 }
 
-/* Casino Felt Background style */
+.animate-pulse-ambient {
+  animation: pulseAmbient 10s ease-in-out infinite;
+}
+
+.animate-float-particle {
+  animation: floatParticle 8s ease-in-out infinite;
+}
+
+/* Luxury Card Table Background style */
 .felt-bg {
-  background-color: #1a1a1a;
+  background-color: #0d0d0f;
+  background-image: 
+    radial-gradient(circle at 50% 50%, #1c1c24 0%, #0d0d0f 80%);
+}
+
+@keyframes fallAndTumble {
+  0% {
+    transform: translateY(-180px) rotateX(15deg) rotateY(-10deg) rotateZ(var(--rotate-start, -15deg)) scale(0.85);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(115vh) rotateX(var(--rotate-x, 340deg)) rotateY(var(--rotate-y, 190deg)) rotateZ(var(--rotate-z, 40deg)) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.animate-fall-tumble {
+  animation: fallAndTumble var(--fall-duration, 4.5s) cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+
+.felt-pattern {
   background-image:
-    repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.012) 10px, rgba(255,255,255,0.012) 11px),
-    repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(255,255,255,0.012) 10px, rgba(255,255,255,0.012) 11px);
+    repeating-linear-gradient(45deg, transparent, transparent 15px, rgba(255,255,255,0.003) 15px, rgba(255,255,255,0.003) 16px),
+    repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(255,255,255,0.003) 15px, rgba(255,255,255,0.003) 16px);
+}
+
+/* Premium Gold Glow & Red Glow text effects */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #ffeaa7 0%, #d4af37 50%, #aa7c11 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-glow {
+  text-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+}
+
+.red-glow {
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Dynamic 3D Card Model Hover Physics classes */
+.card-3d-model {
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateZ(var(--card-translate-z, 0px));
+  box-shadow: 
+    0 var(--shadow-offset-y, 15px) var(--shadow-blur, 35px) rgba(0, 0, 0, var(--shadow-intensity, 0.65)),
+    0 0 var(--suit-glow-size, 20px) var(--suit-glow-color, rgba(0, 0, 0, 0));
+  transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.card-3d-model:not(:hover) {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --card-translate-z: 0px;
+  --shadow-intensity: 0.65;
+  --shadow-offset-y: 15px;
+  --shadow-blur: 35px;
+  --suit-glow-size: 0px;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Luxurious Smoky Glass 3D Bevel, Borders and Gold/Silver edge highlights */
+.card-3d-bevel-gold {
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  background: linear-gradient(135deg, rgba(20, 20, 25, 0.55) 0%, rgba(10, 10, 12, 0.45) 100%) !important;
+  box-shadow: 
+    inset 0 1px 0px rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(212, 175, 55, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+.card-3d-bevel-red {
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  background: linear-gradient(135deg, rgba(20, 20, 25, 0.55) 0%, rgba(10, 10, 12, 0.45) 100%) !important;
+  box-shadow: 
+    inset 0 1px 0px rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(239, 68, 68, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.7);
+}
+
+/* Desktop-only custom cursor hider */
+@media (hover: hover) and (pointer: fine) {
+  html, body, a, button, [role="button"], .cursor-pointer {
+    cursor: none !important;
+  }
 }

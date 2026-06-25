@@ -35,5 +35,5 @@ export interface Education {
 
 export interface SkillGroup {
   title: string;
-  skills: { name: string; icon: string }[];
+  skills: { name: string }[];
 }

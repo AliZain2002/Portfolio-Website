@@ -80,3 +80,72 @@ export function playCardFlipSound() {
     console.error('Error playing card flip sound:', err);
   }
 }
+
+export function playCardsFallingSound() {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  
+  try {
+    const now = ctx.currentTime;
+    const numCards = 18; // Number of cards in the cascading waterfall
+    const duration = 2.0; // Total duration in seconds
+    
+    for (let i = 0; i < numCards; i++) {
+      // Stagger the cards with slight organic randomness
+      const delay = (i / numCards) * duration + Math.random() * 0.12;
+      const cardTime = now + delay;
+      
+      // 1. Shorter papery swish sound using custom white noise burst
+      const bufLen = Math.floor(ctx.sampleRate * 0.14);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      
+      for (let j = 0; j < bufLen; j++) {
+        data[j] = (Math.random() * 2 - 1) * (1 - j / bufLen);
+      }
+      
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+      
+      // Dynamic bandpass filter centered around papery range (2kHz to 3.5kHz)
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      const centerFreq = 2200 + Math.random() * 1000;
+      bp.frequency.setValueAtTime(centerFreq, cardTime);
+      bp.Q.setValueAtTime(1.2, cardTime);
+      
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0, cardTime);
+      // Fade-in/out envelope for the rustling sound
+      noiseGain.gain.linearRampToValueAtTime(0.12 + Math.random() * 0.08, cardTime + 0.012);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, cardTime + 0.12);
+      
+      noise.connect(bp);
+      bp.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start(cardTime);
+      noise.stop(cardTime + 0.14);
+      
+      // 2. Clear click/tap sound as the card lands/piles up
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      
+      // Slightly lower and warmer pitches for a premium matte card feel
+      const startPitch = 280 + Math.random() * 180;
+      const endPitch = 70 + Math.random() * 30;
+      osc.frequency.setValueAtTime(startPitch, cardTime);
+      osc.frequency.exponentialRampToValueAtTime(endPitch, cardTime + 0.07);
+      
+      const oscGain = ctx.createGain();
+      oscGain.gain.setValueAtTime(0.06 + Math.random() * 0.06, cardTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, cardTime + 0.07);
+      
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      osc.start(cardTime);
+      osc.stop(cardTime + 0.08);
+    }
+  } catch (err) {
+    console.error('Error playing cards falling sound:', err);
+  }
+}
