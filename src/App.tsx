@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Mail, 
   Phone, 
@@ -11,7 +11,9 @@ import {
   Briefcase, 
   ChevronRight,
   Volume2,
-  VolumeX
+  VolumeX,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { cardsData, projectsData, experiencesData, educationData, certificationsData, skillsData } from './data';
 import { SuitType } from './types';
@@ -355,18 +357,44 @@ function Suit3DModel({ suit, size = 100, className = '' }: Suit3DModelProps) {
   }
 }
 
-function CustomCursor() {
-  const [position, setPosition] = useState({ x: -100, y: -100 });
-  const [hovered, setHovered] = useState(false);
-  const [clicked, setClicked] = useState(false);
-  const [visible, setVisible] = useState(false);
+function CustomCursor({ theme }: { theme: 'dark' | 'light' }) {
   const [hoveredSuit, setHoveredSuit] = useState<string | null>(null);
+  const [visible, setVisible] = useState(false);
+  
+  const cursorOuterRef = useRef<HTMLDivElement>(null);
+  const cursorInnerRef = useRef<HTMLDivElement>(null);
+  
+  const hoveredRef = useRef(false);
+  const clickedRef = useRef(false);
 
   useEffect(() => {
+    let mouseX = -100;
+    let mouseY = -100;
+    let outerX = -100;
+    let outerY = -100;
+    let animationFrameId: number;
+
     const handleMouseMove = (e: MouseEvent) => {
-      setPosition({ x: e.clientX, y: e.clientY });
+      mouseX = e.clientX;
+      mouseY = e.clientY;
       if (!visible) setVisible(true);
     };
+
+    const updatePosition = () => {
+      outerX += (mouseX - outerX) * 0.18;
+      outerY += (mouseY - outerY) * 0.18;
+
+      if (cursorOuterRef.current) {
+        cursorOuterRef.current.style.transform = `translate3d(${outerX}px, ${outerY}px, 0) scale(${hoveredRef.current ? 1.25 : 1})`;
+      }
+      if (cursorInnerRef.current) {
+        cursorInnerRef.current.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0) scale(${clickedRef.current ? 0.7 : 1})`;
+      }
+
+      animationFrameId = requestAnimationFrame(updatePosition);
+    };
+
+    animationFrameId = requestAnimationFrame(updatePosition);
 
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -386,11 +414,12 @@ function CustomCursor() {
         target.closest('.cursor-pointer') ||
         target.closest('[role="button"]') ||
         cardEl;
-      setHovered(!!isClickable);
+      
+      hoveredRef.current = !!isClickable;
     };
 
-    const handleMouseDown = () => setClicked(true);
-    const handleMouseUp = () => setClicked(false);
+    const handleMouseDown = () => { clickedRef.current = true; };
+    const handleMouseUp = () => { clickedRef.current = false; };
     const handleMouseLeave = () => setVisible(false);
     const handleMouseEnter = () => setVisible(true);
 
@@ -402,6 +431,7 @@ function CustomCursor() {
     document.body.addEventListener('mouseenter', handleMouseEnter);
 
     return () => {
+      cancelAnimationFrame(animationFrameId);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseover', handleMouseOver);
       window.removeEventListener('mousedown', handleMouseDown);
@@ -429,22 +459,23 @@ function CustomCursor() {
     <>
       {/* Outer fluid trailing circle */}
       <div 
-        className="fixed top-0 left-0 rounded-full pointer-events-none z-[9999] transition-transform duration-100 ease-out -translate-x-1/2 -translate-y-1/2 flex items-center justify-center font-serif text-lg leading-none"
+        ref={cursorOuterRef}
+        className="fixed top-0 left-0 rounded-full pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center font-serif text-lg leading-none"
         style={{
           width: hoveredSuit ? '48px' : '36px',
           height: hoveredSuit ? '48px' : '36px',
-          transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${hovered ? 1.2 : 1})`,
           backgroundColor: hoveredSuit 
             ? (isRedSuit ? 'rgba(239, 68, 68, 0.08)' : 'rgba(212, 175, 55, 0.08)')
-            : (hovered ? 'rgba(212, 175, 55, 0.05)' : 'transparent'),
+            : 'transparent',
           borderColor: hoveredSuit 
             ? (isRedSuit ? 'rgba(239, 68, 68, 0.6)' : 'rgba(212, 175, 55, 0.6)')
-            : (hovered ? '#d4af37' : 'rgba(255, 255, 255, 0.2)'),
+            : (theme === 'light' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.2)'),
           borderWidth: '1.5px',
           borderStyle: 'solid',
           boxShadow: hoveredSuit
             ? (isRedSuit ? '0 0 15px rgba(239, 68, 68, 0.35)' : '0 0 15px rgba(212, 175, 55, 0.35)')
-            : (hovered ? '0 0 10px rgba(212, 175, 55, 0.25)' : 'none'),
+            : 'none',
+          willChange: 'transform',
         }}
       >
         {hoveredSuit && (
@@ -457,11 +488,12 @@ function CustomCursor() {
       {/* Inner solid dot (hides when hovering card suit to not block the symbol) */}
       {!hoveredSuit && (
         <div 
-          className="fixed top-0 left-0 w-2 h-2 rounded-full pointer-events-none z-[10000] -translate-x-1/2 -translate-y-1/2 transition-transform duration-75"
+          ref={cursorInnerRef}
+          className="fixed top-0 left-0 w-2 h-2 rounded-full pointer-events-none z-[10000] -translate-x-1/2 -translate-y-1/2"
           style={{
-            transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${clicked ? 0.7 : 1})`,
-            backgroundColor: hovered ? '#d4af37' : '#ffffff',
-            boxShadow: hovered ? '0 0 8px #d4af37' : '0 0 4px rgba(255, 255, 255, 0.5)',
+            backgroundColor: theme === 'light' ? '#111111' : '#ffffff',
+            boxShadow: theme === 'light' ? '0 0 4px rgba(0, 0, 0, 0.15)' : '0 0 4px rgba(255, 255, 255, 0.5)',
+            willChange: 'transform',
           }}
         />
       )}
@@ -471,9 +503,10 @@ function CustomCursor() {
 
 interface IntroScreenProps {
   onComplete: () => void;
+  theme: 'dark' | 'light';
 }
 
-function IntroScreen({ onComplete }: IntroScreenProps) {
+function IntroScreen({ onComplete, theme }: IntroScreenProps) {
   const [isFading, setIsFading] = useState(false);
 
   useEffect(() => {
@@ -502,16 +535,24 @@ function IntroScreen({ onComplete }: IntroScreenProps) {
       if (ctx && ctx.state === 'suspended') {
         ctx.resume().then(() => {
           playSound();
-        });
+        }).catch(console.warn);
       } else {
         playSound();
       }
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('mousedown', handleFirstInteraction);
+      window.removeEventListener('mouseenter', handleFirstInteraction);
+      window.removeEventListener('mouseover', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
     };
 
     window.addEventListener('click', handleFirstInteraction);
     window.addEventListener('touchstart', handleFirstInteraction);
+    window.addEventListener('mousedown', handleFirstInteraction);
+    window.addEventListener('mouseenter', handleFirstInteraction);
+    window.addEventListener('mouseover', handleFirstInteraction);
+    window.addEventListener('keydown', handleFirstInteraction);
 
     // Cinematic auto-finish after 4.5 seconds
     const fadeTimer = setTimeout(() => {
@@ -527,6 +568,10 @@ function IntroScreen({ onComplete }: IntroScreenProps) {
       clearTimeout(finishTimer);
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('mousedown', handleFirstInteraction);
+      window.removeEventListener('mouseenter', handleFirstInteraction);
+      window.removeEventListener('mouseover', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
     };
   }, [onComplete]);
 
@@ -557,7 +602,9 @@ function IntroScreen({ onComplete }: IntroScreenProps) {
   ];
 
   return (
-    <div className={`fixed inset-0 z-[100] bg-[#09090b] flex flex-col justify-between items-center transition-all duration-700 ease-out pointer-events-auto select-none ${
+    <div className={`fixed inset-0 z-[100] transition-colors duration-500 flex flex-col justify-between items-center transition-all duration-700 ease-out pointer-events-auto select-none ${
+      theme === 'light' ? 'bg-neutral-50 text-neutral-900' : 'bg-[#09090b] text-white'
+    } ${
       isFading ? 'opacity-0 pointer-events-none scale-105' : 'opacity-100'
     }`}>
       
@@ -624,11 +671,17 @@ function IntroScreen({ onComplete }: IntroScreenProps) {
           Shuffling the Deck
         </p>
 
-        <h2 className="font-cinzel text-3xl sm:text-5xl font-black tracking-[4px] text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-400 mb-3 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] select-none">
+        <h2 className={`font-cinzel text-3xl sm:text-5xl font-black tracking-[4px] text-transparent bg-clip-text bg-gradient-to-b mb-3 transition-colors duration-500 select-none ${
+          theme === 'light'
+            ? 'from-neutral-900 via-neutral-800 to-neutral-700 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]'
+            : 'from-white to-zinc-400 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]'
+        }`}>
           Ali Zain Hemani
         </h2>
         
-        <p className="font-serif text-sm sm:text-base italic text-zinc-400 opacity-85 leading-relaxed">
+        <p className={`font-serif text-sm sm:text-base italic leading-relaxed transition-colors duration-500 ${
+          theme === 'light' ? 'text-neutral-600' : 'text-zinc-400 opacity-85'
+        }`}>
           "Every hand's a winning hand<br/>when you know how to play them all."
         </p>
         
@@ -643,8 +696,17 @@ function IntroScreen({ onComplete }: IntroScreenProps) {
       {/* Skip Button at bottom */}
       <div className="relative z-20 pb-16">
         <button
-          onClick={() => setIsFading(true)}
-          className="px-8 py-3 border border-zinc-800 hover:border-[#d4af37]/60 hover:text-white bg-black/50 text-zinc-400 text-[10px] font-bold uppercase tracking-[4px] rounded-full transition-all duration-300 backdrop-blur-md cursor-pointer hover:shadow-[0_0_20px_rgba(212,175,55,0.15)] active:scale-95"
+          onClick={() => {
+            setIsFading(true);
+            setTimeout(() => {
+              onComplete();
+            }, 350);
+          }}
+          className={`px-8 py-3 border transition-all duration-300 backdrop-blur-md cursor-pointer active:scale-95 text-[10px] font-bold uppercase tracking-[4px] rounded-full ${
+            theme === 'light'
+              ? 'border-neutral-300 hover:border-neutral-500 bg-white/80 text-neutral-800 hover:shadow-[0_0_15px_rgba(0,0,0,0.1)]'
+              : 'border-zinc-800 hover:border-[#d4af37]/60 hover:text-white bg-black/50 text-zinc-400 hover:shadow-[0_0_20px_rgba(212,175,55,0.15)]'
+          }`}
         >
           Skip Intro
         </button>
@@ -660,6 +722,23 @@ export default function App() {
   const [activePanel, setActivePanel] = useState<SuitType | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [isMuted, setIsMuted] = useState(getMutedState());
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('app-theme') === 'light' ? 'light' : 'dark';
+    }
+    return 'dark';
+  });
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    localStorage.setItem('app-theme', nextTheme);
+  };
+
+  // Initialize audio context early on mount
+  useEffect(() => {
+    ensureAudioContext();
+  }, []);
 
   // Handle ESC key to close any active modal panels
   useEffect(() => {
@@ -762,8 +841,29 @@ export default function App() {
   };
 
   return (
-    <div className="relative min-h-screen felt-bg text-white font-sans selection:bg-red-600 selection:text-white pb-16 overflow-x-hidden">
+    <div className={`relative min-h-screen font-sans selection:bg-red-600 selection:text-white pb-16 overflow-x-hidden transition-colors duration-500 ${
+      theme === 'light' 
+        ? 'bg-neutral-50 text-neutral-900 animate-fadeIn' 
+        : 'felt-bg text-white'
+    }`}>
       
+      {/* ── THEME TRIGGER BUTTON (LIGHT/DARK) ── */}
+      <button
+        onClick={toggleTheme}
+        className={`fixed top-4 right-14 sm:top-5 sm:right-16 z-[110] p-2 rounded-full border transition-all duration-300 backdrop-blur-md cursor-pointer active:scale-95 ${
+          theme === 'light'
+            ? 'border-neutral-300 hover:border-neutral-500 bg-white/90 text-neutral-800 hover:shadow-[0_0_12px_rgba(0,0,0,0.1)]'
+            : 'border-[#d4af37]/20 hover:border-[#d4af37]/50 bg-neutral-950/80 text-white hover:shadow-[0_0_12px_rgba(255,255,255,0.08)]'
+        }`}
+        title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+      >
+        {theme === 'light' ? (
+          <Moon className="w-4 h-4 text-neutral-800" />
+        ) : (
+          <Sun className="w-4 h-4 text-[#d4af37] filter drop-shadow-[0_0_3px_rgba(212,175,55,0.4)]" />
+        )}
+      </button>
+
       {/* ── AUDIO CONTROL BUTTON (MUTE/UNMUTE) ── */}
       <button
         onClick={toggleMute}
@@ -781,49 +881,63 @@ export default function App() {
         )}
       </button>
 
-      {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
+      {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} theme={theme} />}
 
-      <div className={`transition-all duration-1000 ease-out ${
+      <div className={`transition-all duration-500 ease-out ${
         showIntro ? 'opacity-0 scale-98 blur-sm pointer-events-none' : 'opacity-100 scale-100 blur-0 pointer-events-auto'
       }`}>
         {/* ── PREMIUM AMBIENT BACKGROUND GLOWS & FLOATING SUITS ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
         {/* Deep luxurious atmospheric ambient glows */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-red-600/10 blur-[130px] rounded-full animate-pulse-ambient"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] bg-[#d4af37]/8 blur-[130px] rounded-full animate-pulse-ambient [animation-delay:-5s]"></div>
-        <div className="absolute top-[35%] left-[30%] w-[35vw] h-[35vw] max-w-[400px] max-h-[400px] bg-violet-600/5 blur-[160px] rounded-full animate-pulse-ambient [animation-delay:-3s]"></div>
+        <div className={`absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] blur-[130px] rounded-full animate-pulse-ambient transition-colors duration-500 ${
+          theme === 'light' ? 'bg-red-500/[0.03]' : 'bg-red-600/10'
+        }`}></div>
+        <div className={`absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] blur-[130px] rounded-full animate-pulse-ambient [animation-delay:-5s] transition-colors duration-500 ${
+          theme === 'light' ? 'bg-amber-500/[0.03]' : 'bg-[#d4af37]/8'
+        }`}></div>
+        <div className={`absolute top-[35%] left-[30%] w-[35vw] h-[35vw] max-w-[400px] max-h-[400px] blur-[160px] rounded-full animate-pulse-ambient [animation-delay:-3s] transition-colors duration-500 ${
+          theme === 'light' ? 'bg-violet-500/[0.02]' : 'bg-violet-600/5'
+        }`}></div>
         
         {/* Subtle felt weaving texture overlay */}
-        <div className="absolute inset-0 felt-pattern opacity-20"></div>
+        <div className={`absolute inset-0 felt-pattern transition-opacity duration-500 ${theme === 'light' ? 'opacity-[0.03]' : 'opacity-20'}`}></div>
 
         {/* Cinematic watermark in background behind cards */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-0 opacity-[0.035] leading-none" aria-hidden="true">
-          <div className="font-cinzel text-[6rem] sm:text-[11rem] font-black tracking-[8px] text-white">ALI ZAIN</div>
+        <div className={`absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-0 leading-none transition-all duration-500 ${
+          theme === 'light' ? 'opacity-[0.015]' : 'opacity-[0.035]'
+        }`} aria-hidden="true">
+          <div className={`font-cinzel text-[6rem] sm:text-[11rem] font-black tracking-[8px] transition-colors duration-500 ${theme === 'light' ? 'text-black' : 'text-white'}`}>ALI ZAIN</div>
           <div className="font-cinzel text-[6rem] sm:text-[11rem] font-black tracking-[12px] text-red-500 mt-[-20px] sm:mt-[-45px]">PORTFOLIO.</div>
         </div>
 
         {/* Floating background suit symbols */}
         <div className="absolute inset-0 flex justify-around items-center select-none pointer-events-none">
-          <span className="text-[14rem] sm:text-[18rem] opacity-[0.02] animate-float-suit text-white absolute top-[10%] left-[5%]">♠</span>
+          <span className={`text-[14rem] sm:text-[18rem] animate-float-suit absolute top-[10%] left-[5%] transition-all duration-500 ${
+            theme === 'light' ? 'opacity-[0.015] text-neutral-950' : 'opacity-[0.02] text-white'
+          }`}>♠</span>
           <span className="text-[12rem] sm:text-[16rem] opacity-[0.015] animate-float-suit text-red-600 absolute top-[48%] right-[5%] [animation-delay:-4s]">♥</span>
-          <span className="text-[13rem] sm:text-[17rem] opacity-[0.02] animate-float-suit-slow text-white absolute bottom-[10%] left-[8%] [animation-delay:-8s]">♣</span>
+          <span className={`text-[13rem] sm:text-[17rem] animate-float-suit-slow absolute bottom-[10%] left-[8%] [animation-delay:-8s] transition-all duration-500 ${
+            theme === 'light' ? 'opacity-[0.015] text-neutral-950' : 'opacity-[0.02] text-white'
+          }`}>♣</span>
           <span className="text-[11rem] sm:text-[14rem] opacity-[0.012] animate-float-suit-slow text-red-600 absolute top-[25%] right-[22%] [animation-delay:-12s]">♦</span>
         </div>
 
         {/* Slow rising ambient starlight dust */}
-        <div className="absolute top-[20%] left-[25%] w-1 h-1 bg-white/40 rounded-full animate-float-particle"></div>
+        <div className={`absolute top-[20%] left-[25%] w-1 h-1 rounded-full animate-float-particle transition-colors ${theme === 'light' ? 'bg-neutral-900/10' : 'bg-white/40'}`}></div>
         <div className="absolute top-[48%] left-[78%] w-1.5 h-1.5 bg-red-500/30 rounded-full animate-float-particle [animation-delay:-2s]"></div>
         <div className="absolute bottom-[35%] left-[42%] w-1 h-1 bg-yellow-500/40 rounded-full animate-float-particle [animation-delay:-4s]"></div>
-        <div className="absolute top-[72%] left-[12%] w-1.5 h-1.5 bg-white/20 rounded-full animate-float-particle [animation-delay:-6s]"></div>
+        <div className={`absolute top-[72%] left-[12%] w-1.5 h-1.5 rounded-full animate-float-particle [animation-delay:-6s] transition-colors ${theme === 'light' ? 'bg-neutral-900/10' : 'bg-white/20'}`}></div>
       </div>
 
       {/* ── PREMIUM TECHNICAL MARGIN DECALS (As shown on poster) ── */}
-      <div className="fixed inset-0 pointer-events-none z-20 select-none hidden lg:block font-mono text-[9px] tracking-[2px] text-white/30 uppercase leading-relaxed p-8" aria-hidden="true">
+      <div className={`fixed inset-0 pointer-events-none z-20 select-none hidden lg:block font-mono text-[9px] tracking-[2px] uppercase leading-relaxed p-8 transition-colors duration-500 ${
+        theme === 'light' ? 'text-neutral-400 font-medium' : 'text-white/30'
+      }`} aria-hidden="true">
         {/* Top-Left Decal */}
         <div className="absolute top-8 left-8 flex flex-col gap-0.5">
           <div className="flex items-center gap-1.5">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-bold text-white/60">DECK: INITIALIZED</span>
+            <span className={`font-bold transition-colors duration-500 ${theme === 'light' ? 'text-emerald-700' : 'text-white/60'}`}>DECK: INITIALIZED</span>
           </div>
           <div>CLASS: NATIVE AI</div>
           <div>ORIGIN: LATENT SPACE</div>
@@ -838,8 +952,8 @@ export default function App() {
 
         {/* Bottom-Left Decal */}
         <div className="absolute bottom-8 left-8 flex flex-col gap-1 max-w-xs">
-          <div className="font-bold text-white/50">DRAW INSTRUCTIONS</div>
-          <div className="text-[8px] leading-normal text-white/20">
+          <div className={`font-bold transition-colors duration-500 ${theme === 'light' ? 'text-neutral-500' : 'text-white/50'}`}>DRAW INSTRUCTIONS</div>
+          <div className={`text-[8px] leading-normal transition-colors duration-500 ${theme === 'light' ? 'text-neutral-400' : 'text-white/20'}`}>
             SELECT A CARD FROM THE DECK BELOW TO REVEAL PORTFOLIO DATA. INTERFACE UTILIZES GLASSMORPHIC NEURAL RENDERING.
           </div>
         </div>
@@ -856,7 +970,9 @@ export default function App() {
       <header className="relative z-10 pt-16 pb-6 px-4 text-center overflow-hidden">
         <div className="relative max-w-4xl mx-auto flex justify-between items-center px-4 sm:px-8">
           {/* Flanking Card Index Left */}
-          <div className="hidden sm:flex flex-col items-center leading-none font-serif text-[#d4af37] opacity-40 pointer-events-none select-none text-2xl border border-[#d4af37]/20 p-2.5 rounded-xl bg-black/40 backdrop-blur-md shadow-lg" aria-hidden="true">
+          <div className={`hidden sm:flex flex-col items-center leading-none font-serif text-[#d4af37] opacity-40 pointer-events-none select-none text-2xl border p-2.5 rounded-xl backdrop-blur-md shadow-lg transition-all duration-500 ${
+            theme === 'light' ? 'border-[#d4af37]/40 bg-white/70' : 'border-[#d4af37]/20 bg-black/40'
+          }`} aria-hidden="true">
             <span className="font-bold">J</span>
             <span className="text-red-500">♥</span>
           </div>
@@ -870,8 +986,12 @@ export default function App() {
             </div>
 
             {/* Main Name Heading */}
-            <h1 className="font-cinzel text-5xl sm:text-7xl font-bold tracking-[4px] leading-tight mb-5 select-none text-transparent bg-clip-text bg-gradient-to-b from-white via-zinc-200 to-zinc-400 drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]">
-              <span className="block text-white">Ali Zain</span>
+            <h1 className={`font-cinzel text-5xl sm:text-7xl font-bold tracking-[4px] leading-tight mb-5 select-none text-transparent bg-clip-text bg-gradient-to-b transition-all duration-500 ${
+              theme === 'light'
+                ? 'from-neutral-900 via-neutral-800 to-neutral-700 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.1)]'
+                : 'from-white via-zinc-200 to-zinc-400 filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]'
+            }`}>
+              <span className={`block transition-colors duration-500 ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>Ali Zain</span>
               <span className="block text-red-600 tracking-[6px] mt-1 text-shadow">Hemani</span>
             </h1>
 
@@ -880,7 +1000,9 @@ export default function App() {
               <div className="mb-3 h-8 flex justify-center items-center">
                 <Typewriter />
               </div>
-              <p className="font-serif text-lg sm:text-xl italic text-white/80 leading-relaxed px-4 text-shadow-sm">
+              <p className={`font-serif text-lg sm:text-xl italic leading-relaxed px-4 transition-colors duration-500 ${
+                theme === 'light' ? 'text-neutral-700' : 'text-white/80'
+              }`}>
                 "Every hand's a winning hand <br className="hidden sm:block"/>when you know how to play them all."
               </p>
             </div>
@@ -888,17 +1010,21 @@ export default function App() {
             {/* Suit divider and user prompt */}
             <div className="mt-8 flex flex-col items-center gap-2">
               <div className="flex gap-4 text-xl select-none" aria-hidden="true">
-                <span className="text-white/20 hover:text-[#d4af37] transition-colors duration-300">♠</span>
+                <span className={`transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900/30 hover:text-[#d4af37]' : 'text-white/20 hover:text-[#d4af37]'}`}>♠</span>
                 <span className="text-red-600/30 hover:text-red-500 transition-colors duration-300">♥</span>
-                <span className="text-white/20 hover:text-[#d4af37] transition-colors duration-300">♣</span>
+                <span className={`transition-colors duration-300 ${theme === 'light' ? 'text-neutral-900/30 hover:text-[#d4af37]' : 'text-white/20 hover:text-[#d4af37]'}`}>♣</span>
                 <span className="text-red-600/30 hover:text-red-500 transition-colors duration-300">♦</span>
               </div>
-              <p className="text-[9px] tracking-[6px] text-white/35 uppercase font-semibold mt-1">Pick a card to explore</p>
+              <p className={`text-[9px] tracking-[6px] uppercase font-semibold mt-1 transition-colors duration-500 ${
+                theme === 'light' ? 'text-neutral-500/60' : 'text-white/35'
+              }`}>Pick a card to explore</p>
             </div>
           </div>
 
           {/* Flanking Card Index Right */}
-          <div className="hidden sm:flex flex-col items-center leading-none font-serif text-[#d4af37] opacity-40 pointer-events-none select-none text-2xl border border-[#d4af37]/20 p-2.5 rounded-xl bg-black/40 backdrop-blur-md shadow-lg" aria-hidden="true">
+          <div className={`hidden sm:flex flex-col items-center leading-none font-serif text-[#d4af37] opacity-40 pointer-events-none select-none text-2xl border p-2.5 rounded-xl backdrop-blur-md shadow-lg transition-all duration-500 ${
+            theme === 'light' ? 'border-[#d4af37]/40 bg-white/70' : 'border-[#d4af37]/20 bg-black/40'
+          }`} aria-hidden="true">
             <span className="font-bold">J</span>
             <span className="text-red-500">♥</span>
           </div>
@@ -927,9 +1053,13 @@ export default function App() {
                 
                 {/* CARD BACK (shown on table by default, crafted with luxury glassmorphic physical feel) */}
                 <div className={`absolute inset-0 rounded-2xl backdrop-blur-md p-3 sm:p-5 flex flex-col justify-between backface-hidden transition-all duration-300 border [transform-style:preserve-3d] ${
-                  card.isRed 
-                    ? 'bg-neutral-950/75 card-3d-bevel-red text-red-500' 
-                    : 'bg-neutral-950/70 card-3d-bevel-gold text-[#d4af37]'
+                  theme === 'light'
+                    ? (card.isRed 
+                        ? 'bg-white/90 border-red-200/60 shadow-[0_12px_32px_rgba(239,68,68,0.08)] text-red-600' 
+                        : 'bg-white/90 border-amber-300/60 shadow-[0_12px_32px_rgba(212,175,55,0.08)] text-amber-800')
+                    : (card.isRed 
+                        ? 'bg-neutral-950/75 border-white/5 card-3d-bevel-red text-red-500' 
+                        : 'bg-neutral-950/70 border-white/5 card-3d-bevel-gold text-[#d4af37]')
                 }`}>
                   
                   {/* Glare/Highlight varnish Overlay for back */}
@@ -941,15 +1071,23 @@ export default function App() {
                   />
 
                   {/* Ornate Inner Border Frame */}
-                  <div className={`absolute inset-2 sm:inset-3 rounded-xl pointer-events-none border ${card.isRed ? 'border-red-500/10' : 'border-[#d4af37]/10'} [transform:translateZ(10px)]`}></div>
+                  <div className={`absolute inset-2 sm:inset-3 rounded-xl pointer-events-none border ${
+                    theme === 'light'
+                      ? (card.isRed ? 'border-red-500/15' : 'border-[#d4af37]/25')
+                      : (card.isRed ? 'border-red-500/10' : 'border-[#d4af37]/10')
+                  } [transform:translateZ(10px)]`}></div>
                   
                   {/* Left edge vertical text */}
-                  <div className="absolute left-1.5 bottom-12 origin-bottom-left -rotate-90 text-[7px] sm:text-[8px] tracking-[2px] font-mono uppercase text-white/25 whitespace-nowrap leading-none select-none pointer-events-none [transform:translateZ(15px)]">
+                  <div className={`absolute left-1.5 bottom-12 origin-bottom-left -rotate-90 text-[7px] sm:text-[8px] tracking-[2px] font-mono uppercase whitespace-nowrap leading-none select-none pointer-events-none [transform:translateZ(15px)] transition-colors duration-500 ${
+                    theme === 'light' ? 'text-neutral-400' : 'text-white/25'
+                  }`}>
                     {card.id === 'hearts' ? 'ELEMENT // ABOUT ME' : `AN ENTERTAINMENT ELEMENT // ${card.title}`}
                   </div>
                   
                   {/* Right edge vertical text */}
-                  <div className="absolute right-1.5 top-12 origin-top-right rotate-90 text-[7px] sm:text-[8px] tracking-[2px] font-mono uppercase text-white/25 whitespace-nowrap leading-none select-none pointer-events-none [transform:translateZ(15px)]">
+                  <div className={`absolute right-1.5 top-12 origin-top-right rotate-90 text-[7px] sm:text-[8px] tracking-[2px] font-mono uppercase whitespace-nowrap leading-none select-none pointer-events-none [transform:translateZ(15px)] transition-colors duration-500 ${
+                    theme === 'light' ? 'text-neutral-400' : 'text-white/25'
+                  }`}>
                     {card.isRed ? '// DECK // INITIALIZED' : '// 2026 // NATIVE'}
                   </div>
 
@@ -961,7 +1099,11 @@ export default function App() {
                   </div>
 
                   {/* Top-Left Corner Rank */}
-                  <div className={`flex flex-col items-center leading-none select-none ${card.isRed ? 'text-red-500' : 'text-[#d4af37]'} [transform:translateZ(20px)]`}>
+                  <div className={`flex flex-col items-center leading-none select-none transition-colors duration-500 ${
+                    theme === 'light'
+                      ? (card.isRed ? 'text-red-600' : 'text-amber-800')
+                      : (card.isRed ? 'text-red-500' : 'text-[#d4af37]')
+                  } [transform:translateZ(20px)]`}>
                     <span className="font-serif text-lg sm:text-2xl font-black">{card.backRank}</span>
                     <span className="text-xs sm:text-base leading-none mt-0.5">{card.symbol}</span>
                   </div>
@@ -971,25 +1113,35 @@ export default function App() {
                     <div className="select-none transition-transform duration-300 group-hover:scale-110">
                       <Suit3DModel suit={card.id} size={70} className="sm:w-[100px] sm:h-[100px]" />
                     </div>
-                    <span className={`font-cinzel text-[10px] sm:text-xs tracking-[2px] uppercase font-bold text-center leading-none mt-1.5 ${
-                      card.isRed ? 'text-red-400' : 'text-[#f5d061]'
+                    <span className={`font-cinzel text-[10px] sm:text-xs tracking-[2px] uppercase font-bold text-center leading-none mt-1.5 transition-colors duration-500 ${
+                      theme === 'light'
+                        ? (card.isRed ? 'text-red-600' : 'text-amber-850')
+                        : (card.isRed ? 'text-red-400' : 'text-[#f5d061]')
                     }`}>
                       {card.title}
                     </span>
                   </div>
 
                   {/* Bottom-Right Corner Rank (Upside down) */}
-                  <div className={`flex flex-col items-center leading-none select-none rotate-180 self-end ${card.isRed ? 'text-red-500' : 'text-[#d4af37]'} [transform:translateZ(20px)]`}>
+                  <div className={`flex flex-col items-center leading-none select-none rotate-180 self-end transition-colors duration-500 ${
+                    theme === 'light'
+                      ? (card.isRed ? 'text-red-600' : 'text-amber-800')
+                      : (card.isRed ? 'text-red-500' : 'text-[#d4af37]')
+                  } [transform:translateZ(20px)]`}>
                     <span className="font-serif text-lg sm:text-2xl font-black">{card.backRank}</span>
                     <span className="text-xs sm:text-base leading-none mt-0.5">{card.symbol}</span>
                   </div>
                 </div>
 
                 {/* CARD FACE (rotated front) */}
-                <div className={`absolute inset-0 rounded-2xl backdrop-blur-md p-3 sm:p-5 [transform:rotateY(180deg)] backface-hidden border [transform-style:preserve-3d] ${
-                  card.isRed 
-                    ? 'bg-neutral-950/85 card-3d-bevel-red text-red-500' 
-                    : 'bg-neutral-950/85 card-3d-bevel-gold text-[#d4af37]'
+                <div className={`absolute inset-0 rounded-2xl backdrop-blur-md p-3 sm:p-5 [transform:rotateY(180deg)] backface-hidden border [transform-style:preserve-3d] transition-all duration-300 ${
+                  theme === 'light'
+                    ? (card.isRed 
+                        ? 'bg-white/95 border-red-200/60 shadow-[0_12px_32px_rgba(239,68,68,0.08)] text-red-600' 
+                        : 'bg-white/95 border-amber-300/60 shadow-[0_12px_32px_rgba(212,175,55,0.08)] text-amber-800')
+                    : (card.isRed 
+                        ? 'bg-neutral-950/85 border-white/5 card-3d-bevel-red text-red-500' 
+                        : 'bg-neutral-950/85 border-white/5 card-3d-bevel-gold text-[#d4af37]')
                 }`}>
                   
                   {/* Glare/Highlight varnish Overlay for face */}
@@ -1000,9 +1152,17 @@ export default function App() {
                     }}
                   />
 
-                  <div className={`absolute inset-2 sm:inset-3 rounded-xl pointer-events-none border ${card.isRed ? 'border-red-500/10' : 'border-[#d4af37]/10'} [transform:translateZ(10px)]`}></div>
+                  <div className={`absolute inset-2 sm:inset-3 rounded-xl pointer-events-none border ${
+                    theme === 'light'
+                      ? (card.isRed ? 'border-red-500/15' : 'border-[#d4af37]/25')
+                      : (card.isRed ? 'border-red-500/10' : 'border-[#d4af37]/10')
+                  } [transform:translateZ(10px)]`}></div>
                   
-                  <div className="flex flex-col items-center leading-none select-none [transform:translateZ(20px)]">
+                  <div className={`flex flex-col items-center leading-none select-none [transform:translateZ(20px)] transition-colors duration-500 ${
+                    theme === 'light'
+                      ? (card.isRed ? 'text-red-600' : 'text-amber-800')
+                      : (card.isRed ? 'text-red-500' : 'text-[#d4af37]')
+                  }`}>
                     <span className="font-serif text-lg sm:text-2xl font-black">{card.rank}</span>
                     <span className="text-xs sm:text-base leading-none mt-0.5">{card.symbol}</span>
                   </div>
@@ -1011,13 +1171,23 @@ export default function App() {
                     <div className="select-none transition-transform duration-300 group-hover:scale-110">
                       <Suit3DModel suit={card.id} size={60} className="sm:w-[85px] sm:h-[85px]" />
                     </div>
-                    <span className="font-cinzel text-[10px] sm:text-xs tracking-[2px] uppercase font-bold leading-none mt-1.5">
+                    <span className={`font-cinzel text-[10px] sm:text-xs tracking-[2px] uppercase font-bold leading-none mt-1.5 transition-colors duration-500 ${
+                      theme === 'light'
+                        ? (card.isRed ? 'text-red-600' : 'text-amber-850')
+                        : (card.isRed ? 'text-red-400' : 'text-[#f5d061]')
+                    }`}>
                       {card.title}
                     </span>
-                    <span className="text-[7.5px] sm:text-[9.5px] tracking-[2px] uppercase opacity-40 mt-1.5">click to reveal</span>
+                    <span className={`text-[7.5px] sm:text-[9.5px] tracking-[2px] uppercase mt-1.5 transition-colors duration-500 ${
+                      theme === 'light' ? 'text-neutral-500' : 'opacity-40'
+                    }`}>click to reveal</span>
                   </div>
 
-                  <div className="flex flex-col items-center leading-none select-none rotate-180 self-end [transform:translateZ(20px)]">
+                  <div className={`flex flex-col items-center leading-none select-none rotate-180 self-end [transform:translateZ(20px)] transition-colors duration-500 ${
+                    theme === 'light'
+                      ? (card.isRed ? 'text-red-600' : 'text-amber-800')
+                      : (card.isRed ? 'text-red-500' : 'text-[#d4af37]')
+                  }`}>
                     <span className="font-serif text-lg sm:text-2xl font-black">{card.rank}</span>
                     <span className="text-xs sm:text-base leading-none mt-0.5">{card.symbol}</span>
                   </div>
@@ -1030,7 +1200,9 @@ export default function App() {
       </main>
 
       {/* ── FOOTER ── */}
-      <footer className="relative z-10 text-center pt-16 px-4 text-xs tracking-widest text-white/30 uppercase font-semibold">
+      <footer className={`relative z-10 text-center pt-16 px-4 text-xs tracking-widest uppercase font-semibold transition-colors duration-500 ${
+        theme === 'light' ? 'text-neutral-500' : 'text-white/30'
+      }`}>
         <p>Ali Zain Hemani &nbsp;<span className="text-red-500">♠ ♥ ♣ ♦</span>&nbsp; Karachi, Pakistan &nbsp;·&nbsp; 2026</p>
       </footer>
 
@@ -1039,8 +1211,7 @@ export default function App() {
       {/* ── CARD FLIP ANIMATION OVERLAY ── */}
       {animatingSuit && (
         <div 
-          className="absolute inset-x-0 h-screen z-50 pointer-events-none flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          style={{ top: `${scrollTop}px` }}
+          className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center bg-black/60 backdrop-blur-sm"
         >
           <div className="w-[180px] h-[260px] sm:w-[220px] sm:h-[320px] [perspective:1000px]">
             <div 
@@ -1050,10 +1221,14 @@ export default function App() {
               }}
             >
               {/* Back side of animating card (facing user at start) */}
-              <div className={`absolute inset-0 rounded-2xl [backface-visibility:hidden] backdrop-blur-md flex flex-col items-center justify-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-4 border ${
-                cardsData.find(c => c.id === animatingSuit)?.isRed 
-                  ? 'bg-neutral-950/80 border-red-500/40 text-red-500 shadow-[0_0_40px_rgba(239,68,68,0.3)]' 
-                  : 'bg-neutral-950/80 border-[#d4af37]/40 text-[#d4af37] shadow-[0_0_40px_rgba(212,175,55,0.3)]'
+              <div className={`absolute inset-0 rounded-2xl [backface-visibility:hidden] backdrop-blur-md flex flex-col items-center justify-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-4 border transition-colors duration-300 ${
+                theme === 'light'
+                  ? (cardsData.find(c => c.id === animatingSuit)?.isRed 
+                      ? 'bg-white/95 border-red-300 text-red-600 shadow-[0_12px_40px_rgba(239,68,68,0.12)]' 
+                      : 'bg-white/95 border-amber-300 text-amber-800 shadow-[0_12px_40px_rgba(212,175,55,0.12)]')
+                  : (cardsData.find(c => c.id === animatingSuit)?.isRed 
+                      ? 'bg-neutral-950/80 border-red-500/40 text-red-500 shadow-[0_0_40px_rgba(239,68,68,0.3)]' 
+                      : 'bg-neutral-950/80 border-[#d4af37]/40 text-[#d4af37] shadow-[0_0_40px_rgba(212,175,55,0.3)]')
               }`}>
                 <div className="filter drop-shadow-[0_12px_20px_rgba(0,0,0,0.65)]">
                   <Suit3DModel suit={animatingSuit} size={90} className="sm:w-[125px] sm:h-[125px]" />
@@ -1065,10 +1240,14 @@ export default function App() {
               
               {/* Front side of animating card (rotated 180deg) */}
               <div 
-                className={`absolute inset-0 rounded-2xl [backface-visibility:hidden] [transform:rotateY(180deg)] backdrop-blur-md flex flex-col p-4 justify-between border shadow-[0_20px_50px_rgba(0,0,0,0.8)] ${
-                  cardsData.find(c => c.id === animatingSuit)?.isRed 
-                    ? 'bg-neutral-950/80 border-red-500/45 text-red-500 shadow-[0_0_40px_rgba(239,68,68,0.3)]' 
-                    : 'bg-neutral-950/80 border-[#d4af37]/45 text-[#d4af37] shadow-[0_0_40px_rgba(212,175,55,0.3)]'
+                className={`absolute inset-0 rounded-2xl [backface-visibility:hidden] [transform:rotateY(180deg)] backdrop-blur-md flex flex-col p-4 justify-between border shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-colors duration-300 ${
+                  theme === 'light'
+                    ? (cardsData.find(c => c.id === animatingSuit)?.isRed 
+                        ? 'bg-white/95 border-red-300 text-red-600 shadow-[0_12px_40px_rgba(239,68,68,0.12)]' 
+                        : 'bg-white/95 border-amber-300 text-amber-800 shadow-[0_12px_40px_rgba(212,175,55,0.12)]')
+                    : (cardsData.find(c => c.id === animatingSuit)?.isRed 
+                        ? 'bg-neutral-950/80 border-red-500/45 text-red-500 shadow-[0_0_40px_rgba(239,68,68,0.3)]' 
+                        : 'bg-neutral-950/80 border-[#d4af37]/45 text-[#d4af37] shadow-[0_0_40px_rgba(212,175,55,0.3)]')
                 }`}
               >
                 <div className="flex flex-col items-center leading-none">
@@ -1095,20 +1274,25 @@ export default function App() {
 
       {/* 1. HEARTS - ABOUT ME PANEL */}
       <div 
-        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'hearts' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{ top: `${scrollTop}px` }}
+        } ${theme === 'light' ? 'bg-black/45 backdrop-blur-sm' : 'bg-black/85 backdrop-blur-md'}`}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 flex flex-col ${
+            theme === 'light'
+              ? 'bg-white text-neutral-900 border border-neutral-200 shadow-[0_25px_60px_rgba(0,0,0,0.15)]'
+              : 'bg-neutral-950/95 text-white border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.85)]'
+          } ${
             activePanel === 'hearts' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className={`p-5 sm:p-6 flex items-center justify-between shrink-0 backdrop-blur-xl z-10 border-b ${
+            theme === 'light' ? 'bg-neutral-50/95 border-neutral-200 text-neutral-900' : 'bg-[#0c0c10]/95 border-white/10 text-white'
+          }`}>
             <div className="flex items-center gap-4">
               <span className="text-4xl text-red-500 leading-none filter drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">♥</span>
               <div>
@@ -1120,7 +1304,9 @@ export default function App() {
             </div>
             <button 
               onClick={() => setActivePanel(null)}
-              className="w-8 h-8 rounded-full border border-white/15 flex items-center justify-center hover:bg-red-600 hover:text-white hover:border-red-600 transition-all text-white/70"
+              className={`w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-600 hover:text-white hover:border-red-600 transition-all ${
+                theme === 'light' ? 'border border-neutral-300 text-neutral-600 hover:bg-red-500' : 'border border-white/15 text-white/70'
+              }`}
             >
               <X size={16} />
             </button>
@@ -1128,47 +1314,63 @@ export default function App() {
 
           {/* Body */}
           <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
-            <p className="text-base sm:text-lg leading-relaxed text-white/80">
+            <p className={`text-base sm:text-lg leading-relaxed ${theme === 'light' ? 'text-neutral-700' : 'text-white/80'}`}>
               Hey — I'm <strong className="text-red-500 font-bold">Ali Zain Hemani</strong>, a Computer Science undergraduate based in <strong className="text-red-500 font-bold">Karachi, Pakistan</strong>. 
               I call myself the <strong className="text-red-500 font-bold">Jack of All Trades</strong> because I genuinely don't believe in boxing myself into one lane. 
               One day I'm building AI-powered chat platforms, the next I'm scraping the web for leads or training a vision model. 
               I thrive at the intersection of curiosity and code.
             </p>
-            <p className="text-base sm:text-lg leading-relaxed text-white/80">
+            <p className={`text-base sm:text-lg leading-relaxed ${theme === 'light' ? 'text-neutral-700' : 'text-white/80'}`}>
               My focus is on <strong className="text-red-500 font-bold">AI-driven development</strong> — building things that are actually useful, scalable, and a little bit clever. 
               Whether it's automation, computer vision, or full-stack AI integration, I pick up what I need and ship.
             </p>
 
             {/* Quick Stats Grid with gorgeous frosted cards */}
             <div className="grid grid-cols-3 gap-3 pt-2">
-              <div className="bg-white/[0.03] backdrop-blur-lg rounded-xl p-4 text-center border border-white/10 hover:border-red-500/25 transition-colors shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+              <div className={`rounded-xl p-4 text-center border transition-all duration-350 ${
+                theme === 'light'
+                  ? 'bg-neutral-50 border-neutral-200 hover:border-red-500/30 shadow-sm'
+                  : 'bg-white/[0.03] border-white/10 hover:border-red-500/25 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
+              }`}>
                 <span className="block font-serif text-2xl sm:text-3xl font-black text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]">10+</span>
-                <span className="block text-[8px] sm:text-[10px] tracking-[1.5px] uppercase text-white/50 mt-1">Projects Built</span>
+                <span className={`block text-[8px] sm:text-[10px] tracking-[1.5px] uppercase mt-1 transition-colors duration-500 ${theme === 'light' ? 'text-neutral-500' : 'text-white/50'}`}>Projects Built</span>
               </div>
-              <div className="bg-white/[0.03] backdrop-blur-lg rounded-xl p-4 text-center border border-white/10 hover:border-red-500/25 transition-colors shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+              <div className={`rounded-xl p-4 text-center border transition-all duration-350 ${
+                theme === 'light'
+                  ? 'bg-neutral-50 border-neutral-200 hover:border-red-500/30 shadow-sm'
+                  : 'bg-white/[0.03] border-white/10 hover:border-red-500/25 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
+              }`}>
                 <span className="block font-serif text-2xl sm:text-3xl font-black text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]">1+</span>
-                <span className="block text-[8px] sm:text-[10px] tracking-[1.5px] uppercase text-white/50 mt-1">Years Exp.</span>
+                <span className={`block text-[8px] sm:text-[10px] tracking-[1.5px] uppercase mt-1 transition-colors duration-500 ${theme === 'light' ? 'text-neutral-500' : 'text-white/50'}`}>Years Exp.</span>
               </div>
-              <div className="bg-white/[0.03] backdrop-blur-lg rounded-xl p-4 text-center border border-white/10 hover:border-red-500/25 transition-colors shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]">
+              <div className={`rounded-xl p-4 text-center border transition-all duration-350 ${
+                theme === 'light'
+                  ? 'bg-neutral-50 border-neutral-200 hover:border-red-500/30 shadow-sm'
+                  : 'bg-white/[0.03] border-white/10 hover:border-red-500/25 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
+              }`}>
                 <span className="block font-serif text-2xl sm:text-3xl font-black text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]">6+</span>
-                <span className="block text-[8px] sm:text-[10px] tracking-[1.5px] uppercase text-white/50 mt-1">Certifications</span>
+                <span className={`block text-[8px] sm:text-[10px] tracking-[1.5px] uppercase mt-1 transition-colors duration-500 ${theme === 'light' ? 'text-neutral-500' : 'text-white/50'}`}>Certifications</span>
               </div>
             </div>
 
             {/* Contact Information */}
-            <div className="pt-4 border-t border-white/10">
-              <h4 className="font-cinzel text-xs tracking-[4px] uppercase text-white/40 font-bold mb-3">Get in Touch</h4>
+            <div className={`pt-4 border-t transition-colors duration-500 ${theme === 'light' ? 'border-neutral-200' : 'border-white/10'}`}>
+              <h4 className={`font-cinzel text-xs tracking-[4px] uppercase font-bold mb-3 transition-colors duration-500 ${theme === 'light' ? 'text-neutral-500' : 'text-white/40'}`}>Get in Touch</h4>
               <div className="flex flex-wrap gap-2">
                 <a 
                   href="mailto:alizain.rizwan02@gmail.com" 
-                  className="flex items-center gap-2 bg-white/[0.04] border border-white/10 hover:bg-red-600 hover:text-white hover:border-red-600/50 rounded-full px-4 py-2.5 text-xs font-medium transition-all text-white/90"
+                  className={`flex items-center gap-2 border hover:bg-red-600 hover:text-white hover:border-red-600/50 rounded-full px-4 py-2.5 text-xs font-medium transition-all duration-300 ${
+                    theme === 'light' ? 'bg-neutral-50 border-neutral-200 text-neutral-800' : 'bg-white/[0.04] border-white/10 text-white/90'
+                  }`}
                 >
                   <Mail size={13} className="text-red-500" />
                   alizain.rizwan02@gmail.com
                 </a>
                 <a 
                   href="tel:+923352367457" 
-                  className="flex items-center gap-2 bg-white/[0.04] border border-white/10 hover:bg-red-600 hover:text-white hover:border-red-600/50 rounded-full px-4 py-2.5 text-xs font-medium transition-all text-white/90"
+                  className={`flex items-center gap-2 border hover:bg-red-600 hover:text-white hover:border-red-600/50 rounded-full px-4 py-2.5 text-xs font-medium transition-all duration-300 ${
+                    theme === 'light' ? 'bg-neutral-50 border-neutral-200 text-neutral-800' : 'bg-white/[0.04] border-white/10 text-white/90'
+                  }`}
                 >
                   <Phone size={13} className="text-red-500" />
                   +92 335 2367457
@@ -1194,20 +1396,25 @@ export default function App() {
 
       {/* 2. CLUBS - PROJECTS PANEL */}
       <div 
-        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'clubs' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{ top: `${scrollTop}px` }}
+        } ${theme === 'light' ? 'bg-black/45 backdrop-blur-sm' : 'bg-black/85 backdrop-blur-md'}`}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 flex flex-col ${
+            theme === 'light'
+              ? 'bg-white text-neutral-900 border border-neutral-200 shadow-[0_25px_60px_rgba(0,0,0,0.15)]'
+              : 'bg-neutral-950/95 text-white border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.85)]'
+          } ${
             activePanel === 'clubs' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className={`p-5 sm:p-6 flex items-center justify-between shrink-0 backdrop-blur-xl z-10 border-b ${
+            theme === 'light' ? 'bg-neutral-50/95 border-neutral-200 text-neutral-900' : 'bg-[#0c0c10]/95 border-white/10 text-white'
+          }`}>
             <div className="flex items-center gap-4">
               <span className="text-4xl text-[#d4af37] leading-none filter drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]">♣</span>
               <div>
@@ -1219,7 +1426,9 @@ export default function App() {
             </div>
             <button 
               onClick={() => setActivePanel(null)}
-              className="w-8 h-8 rounded-full border border-white/15 flex items-center justify-center hover:bg-[#d4af37] hover:text-black hover:border-[#d4af37] transition-all text-white/70"
+              className={`w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#d4af37] hover:text-black hover:border-[#d4af37] transition-all ${
+                theme === 'light' ? 'border border-neutral-300 text-neutral-600 hover:bg-[#d4af37]' : 'border border-white/15 text-white/70'
+              }`}
             >
               <X size={16} />
             </button>
@@ -1229,19 +1438,25 @@ export default function App() {
           <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             
             {/* Project Hero Banner with glass outline */}
-            <div className="flex items-center gap-5 bg-gradient-to-r from-neutral-900/90 to-neutral-900/50 text-white rounded-xl p-5 border-l-4 border-[#d4af37] border border-white/5">
+            <div className={`flex items-center gap-5 rounded-xl p-5 border-l-4 border-[#d4af37] border ${
+              theme === 'light'
+                ? 'bg-neutral-50 border-neutral-200/80 text-neutral-800'
+                : 'bg-gradient-to-r from-neutral-900/90 to-neutral-900/50 border-white/5 text-white'
+            }`}>
               <div className="font-serif text-5xl font-black text-[#d4af37] leading-none drop-shadow-[0_0_8px_rgba(212,175,55,0.2)]">
                 10<span className="text-[#d4af37]">+</span>
               </div>
               <div>
-                <h3 className="font-cinzel text-xs font-bold uppercase tracking-[2px] text-white/90">Projects Shipped</h3>
-                <p className="text-[11px] text-white/50 leading-normal mt-1">
+                <h3 className={`font-cinzel text-xs font-bold uppercase tracking-[2px] ${theme === 'light' ? 'text-neutral-950' : 'text-white/90'}`}>Projects Shipped</h3>
+                <p className={`text-[11px] leading-normal mt-1 ${theme === 'light' ? 'text-neutral-500' : 'text-white/50'}`}>
                   AI systems · automation tools · computer vision · desktop apps · web scrapers · and more
                 </p>
               </div>
             </div>
 
-            <h4 className="font-cinzel text-xs tracking-[4px] uppercase text-white/40 font-bold border-b border-white/5 pb-2">Featured Projects</h4>
+            <h4 className={`font-cinzel text-xs tracking-[4px] uppercase font-bold border-b pb-2 ${
+              theme === 'light' ? 'text-neutral-400 border-neutral-200' : 'text-white/40 border-white/5'
+            }`}>Featured Projects</h4>
 
             {/* Projects List with ultra-premium glass cards */}
             <div className="space-y-4">
@@ -1251,10 +1466,16 @@ export default function App() {
                   href={project.link} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="block bg-white/[0.03] text-white border border-white/10 rounded-xl p-5 relative overflow-hidden group hover:translate-x-1 border-l-3 border-transparent hover:border-[#d4af37]/60 hover:bg-white/[0.05] transition-all shadow-lg duration-300"
+                  className={`block border rounded-xl p-5 relative overflow-hidden group hover:translate-x-1 border-l-3 border-transparent hover:border-[#d4af37]/60 transition-all shadow-lg duration-300 ${
+                    theme === 'light'
+                      ? 'bg-neutral-50 border-neutral-200 text-neutral-900 hover:bg-neutral-100/65'
+                      : 'bg-white/[0.03] text-white border-white/10 hover:bg-white/[0.05]'
+                  }`}
                 >
                   {/* Faded Large background number */}
-                  <span className="absolute right-5 top-3 font-serif text-5xl font-black text-[#d4af37]/[0.03] select-none leading-none pointer-events-none">
+                  <span className={`absolute right-5 top-3 font-serif text-5xl font-black select-none leading-none pointer-events-none ${
+                    theme === 'light' ? 'text-neutral-950/[0.03]' : 'text-[#d4af37]/[0.03]'
+                  }`}>
                     {project.num}
                   </span>
 
@@ -1262,15 +1483,19 @@ export default function App() {
                     <h5 className="font-serif text-base font-bold flex items-center gap-2">
                       {project.name}
                       {project.badge && (
-                        <span className="font-sans text-[8px] font-semibold tracking-wider uppercase bg-[#d4af37]/20 text-[#ffeaa7] border border-[#d4af37]/30 rounded-full px-2 py-0.5">
+                        <span className={`font-sans text-[8px] font-semibold tracking-wider uppercase border rounded-full px-2 py-0.5 ${
+                          theme === 'light'
+                            ? 'bg-amber-100 border-amber-300 text-amber-800'
+                            : 'bg-[#d4af37]/20 text-[#ffeaa7] border-[#d4af37]/30'
+                        }`}>
                           {project.badge}
                         </span>
                       )}
                     </h5>
-                    <ExternalLink size={14} className="text-white/20 group-hover:text-[#d4af37] transition-colors mt-1" />
+                    <ExternalLink size={14} className={`transition-colors mt-1 ${theme === 'light' ? 'text-neutral-400 group-hover:text-[#d4af37]' : 'text-white/20 group-hover:text-[#d4af37]'}`} />
                   </div>
 
-                  <p className="text-xs sm:text-sm text-white/60 leading-relaxed mt-2 mb-4">
+                  <p className={`text-xs sm:text-sm leading-relaxed mt-2 mb-4 ${theme === 'light' ? 'text-neutral-600' : 'text-white/60'}`}>
                     {project.desc}
                   </p>
 
@@ -1278,7 +1503,11 @@ export default function App() {
                     {project.tech.map((techItem) => (
                       <span 
                         key={techItem}
-                        className="bg-white/5 border border-white/10 text-[#f5d061] rounded-full px-2.5 py-0.5 text-[9px] tracking-wide font-medium"
+                        className={`border rounded-full px-2.5 py-0.5 text-[9px] tracking-wide font-medium ${
+                          theme === 'light'
+                            ? 'bg-neutral-100 border-neutral-300/80 text-amber-900'
+                            : 'bg-white/5 border-white/10 text-[#f5d061]'
+                        }`}
                       >
                         {techItem}
                       </span>
@@ -1289,9 +1518,13 @@ export default function App() {
             </div>
 
             {/* GitHub Callout row */}
-            <div className="flex items-center gap-3 bg-white/[0.02] border border-dashed border-white/15 rounded-xl p-4 flex-wrap">
+            <div className={`flex items-center gap-3 border border-dashed rounded-xl p-4 flex-wrap ${
+              theme === 'light'
+                ? 'bg-neutral-50 border-neutral-300'
+                : 'bg-white/[0.02] border-white/15'
+            }`}>
               <span className="text-[#d4af37] text-lg">♣</span>
-              <p className="text-xs text-white/60 flex-1 min-w-[180px]">
+              <p className={`text-xs flex-1 min-w-[180px] ${theme === 'light' ? 'text-neutral-600' : 'text-white/60'}`}>
                 +6 more projects across web scraping, ML experiments, CLI tools & automation scripts
               </p>
               <a 
@@ -1310,20 +1543,25 @@ export default function App() {
 
       {/* 3. DIAMONDS - EXPERIENCE PANEL */}
       <div 
-        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'diamonds' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{ top: `${scrollTop}px` }}
+        } ${theme === 'light' ? 'bg-black/45 backdrop-blur-sm' : 'bg-black/85 backdrop-blur-md'}`}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 flex flex-col ${
+            theme === 'light'
+              ? 'bg-white text-neutral-900 border border-neutral-200 shadow-[0_25px_60px_rgba(0,0,0,0.15)]'
+              : 'bg-neutral-950/95 text-white border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.85)]'
+          } ${
             activePanel === 'diamonds' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className={`p-5 sm:p-6 flex items-center justify-between shrink-0 backdrop-blur-xl z-10 border-b ${
+            theme === 'light' ? 'bg-neutral-50/95 border-neutral-200 text-neutral-900' : 'bg-[#0c0c10]/95 border-white/10 text-white'
+          }`}>
             <div className="flex items-center gap-4">
               <span className="text-4xl text-red-500 leading-none filter drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">♦</span>
               <div>
@@ -1335,7 +1573,9 @@ export default function App() {
             </div>
             <button 
               onClick={() => setActivePanel(null)}
-              className="w-8 h-8 rounded-full border border-white/15 flex items-center justify-center hover:bg-red-600 hover:text-white hover:border-red-600 transition-all text-white/70"
+              className={`w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-600 hover:text-white hover:border-red-600 transition-all ${
+                theme === 'light' ? 'border border-neutral-300 text-neutral-600 hover:bg-red-500' : 'border border-white/15 text-white/70'
+              }`}
             >
               <X size={16} />
             </button>
@@ -1344,22 +1584,28 @@ export default function App() {
           {/* Body */}
           <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             
-            <h4 className="font-cinzel text-xs tracking-[4px] uppercase text-white/40 font-bold border-b border-white/5 pb-2">Work Experience</h4>
+            <h4 className={`font-cinzel text-xs tracking-[4px] uppercase font-bold border-b pb-2 ${
+              theme === 'light' ? 'text-neutral-400 border-neutral-200' : 'text-white/40 border-white/5'
+            }`}>Work Experience</h4>
             
             {/* Work experience Blocks in glass card */}
             <div className="space-y-6">
               {experiencesData.map((exp, expIdx) => (
-                <div key={expIdx} className="bg-white/[0.03] border border-white/10 rounded-xl p-5 space-y-3 shadow-lg hover:border-red-500/20 transition-colors">
+                <div key={expIdx} className={`border rounded-xl p-5 space-y-3 shadow-lg hover:border-red-500/20 transition-all duration-300 ${
+                  theme === 'light'
+                    ? 'bg-neutral-50 border-neutral-200 text-neutral-900'
+                    : 'bg-white/[0.03] border-white/10 text-white'
+                }`}>
                   <div className="flex justify-between items-start flex-wrap gap-1">
                     <div>
-                      <h5 className="font-serif text-lg font-bold text-white">{exp.role}</h5>
+                      <h5 className={`font-serif text-lg font-bold ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>{exp.role}</h5>
                       <p className="text-red-500 font-bold text-sm">{exp.company}</p>
                     </div>
-                    <span className="text-[10px] tracking-widest uppercase font-bold text-white/40 mt-1">{exp.date}</span>
+                    <span className={`text-[10px] tracking-widest uppercase font-bold mt-1 transition-colors duration-500 ${theme === 'light' ? 'text-neutral-500' : 'text-white/40'}`}>{exp.date}</span>
                   </div>
                   <ul className="space-y-2 pt-1">
                     {exp.bullets.map((bullet, bIdx) => (
-                      <li key={bIdx} className="relative pl-5 text-sm text-white/70 leading-relaxed">
+                      <li key={bIdx} className={`relative pl-5 text-sm leading-relaxed transition-colors duration-500 ${theme === 'light' ? 'text-neutral-700' : 'text-white/70'}`}>
                         <span className="absolute left-0 text-red-500 text-xs top-0.5">♦</span>
                         {bullet}
                       </li>
@@ -1369,27 +1615,39 @@ export default function App() {
               ))}
             </div>
 
-            <h4 className="font-cinzel text-xs tracking-[4px] uppercase text-white/40 font-bold border-b border-white/5 pt-2 pb-2">Education</h4>
+            <h4 className={`font-cinzel text-xs tracking-[4px] uppercase font-bold border-b pt-2 pb-2 ${
+              theme === 'light' ? 'text-neutral-400 border-neutral-200' : 'text-white/40 border-white/5'
+            }`}>Education</h4>
 
             {/* Education boxes with glass design */}
             <div className="space-y-3">
               {educationData.map((edu, eduIdx) => (
-                <div key={eduIdx} className="bg-white/[0.03] border border-white/10 text-white rounded-xl p-4 flex justify-between items-start gap-4 transition-all hover:border-red-500/20 shadow-md">
+                <div key={eduIdx} className={`border rounded-xl p-4 flex justify-between items-start gap-4 transition-all hover:border-red-500/20 shadow-md ${
+                  theme === 'light'
+                    ? 'bg-neutral-50 border-neutral-200 text-neutral-950'
+                    : 'bg-white/[0.03] border-white/10 text-white'
+                }`}>
                   <div>
-                    <h5 className="font-sans text-sm font-bold text-white leading-snug">{edu.degree}</h5>
-                    <p className="text-xs text-white/50 mt-1">{edu.school}</p>
+                    <h5 className={`font-sans text-sm font-bold leading-snug ${theme === 'light' ? 'text-neutral-900' : 'text-white'}`}>{edu.degree}</h5>
+                    <p className={`text-xs mt-1 ${theme === 'light' ? 'text-neutral-500' : 'text-white/50'}`}>{edu.school}</p>
                   </div>
                   <span className="font-serif text-sm font-black text-red-500 shrink-0">{edu.year}</span>
                 </div>
               ))}
             </div>
 
-            <h4 className="font-cinzel text-xs tracking-[4px] uppercase text-white/40 font-bold border-b border-white/5 pt-2 pb-2">Certifications & Achievements</h4>
+            <h4 className={`font-cinzel text-xs tracking-[4px] uppercase font-bold border-b pt-2 pb-2 ${
+              theme === 'light' ? 'text-neutral-400 border-neutral-200' : 'text-white/40 border-white/5'
+            }`}>Certifications & Achievements</h4>
             
             {/* Certifications grid with glass design */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {certificationsData.map((cert, cIdx) => (
-                <div key={cIdx} className="bg-white/[0.03] border border-white/10 text-white/80 rounded-lg p-3 text-xs leading-normal flex gap-2 items-start shadow-md hover:border-red-500/15 transition-all">
+                <div key={cIdx} className={`border rounded-lg p-3 text-xs leading-normal flex gap-2 items-start shadow-md hover:border-red-500/15 transition-all ${
+                  theme === 'light'
+                    ? 'bg-neutral-50 border-neutral-200 text-neutral-800'
+                    : 'bg-white/[0.03] border-white/10 text-white/80'
+                }`}>
                   <span className="text-[#d4af37] font-semibold shrink-0">✦</span>
                   <span>{cert}</span>
                 </div>
@@ -1402,20 +1660,25 @@ export default function App() {
 
       {/* 4. SPADES - SKILLS PANEL */}
       <div 
-        className={`absolute inset-x-0 h-screen bg-black/85 backdrop-blur-md z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4 transition-opacity duration-300 ${
           activePanel === 'spades' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{ top: `${scrollTop}px` }}
+        } ${theme === 'light' ? 'bg-black/45 backdrop-blur-sm' : 'bg-black/85 backdrop-blur-md'}`}
         onClick={() => setActivePanel(null)}
       >
         <div 
-          className={`bg-neutral-950/95 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-white/10 flex flex-col ${
+          className={`rounded-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden transition-all duration-300 flex flex-col ${
+            theme === 'light'
+              ? 'bg-white text-neutral-900 border border-neutral-200 shadow-[0_25px_60px_rgba(0,0,0,0.15)]'
+              : 'bg-neutral-950/95 text-white border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.85)]'
+          } ${
             activePanel === 'spades' ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="p-5 sm:p-6 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0c0c10]/95 backdrop-blur-xl z-10">
+          <div className={`p-5 sm:p-6 flex items-center justify-between shrink-0 backdrop-blur-xl z-10 border-b ${
+            theme === 'light' ? 'bg-neutral-50/95 border-neutral-200 text-neutral-900' : 'bg-[#0c0c10]/95 border-white/10 text-white'
+          }`}>
             <div className="flex items-center gap-4">
               <span className="text-4xl text-[#d4af37] leading-none filter drop-shadow-[0_0_8px_rgba(212,175,55,0.4)]">♠</span>
               <div>
@@ -1427,7 +1690,9 @@ export default function App() {
             </div>
             <button 
               onClick={() => setActivePanel(null)}
-              className="w-8 h-8 rounded-full border border-white/15 flex items-center justify-center hover:bg-[#d4af37] hover:text-black hover:border-[#d4af37] transition-all text-white/70"
+              className={`w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#d4af37] hover:text-black hover:border-[#d4af37] transition-all ${
+                theme === 'light' ? 'border border-neutral-300 text-neutral-600 hover:bg-[#d4af37]' : 'border border-white/15 text-white/70'
+              }`}
             >
               <X size={16} />
             </button>
@@ -1437,14 +1702,20 @@ export default function App() {
           <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
             {skillsData.map((group, gIdx) => (
               <div key={gIdx} className="space-y-3">
-                <h4 className="font-cinzel text-xs tracking-[3px] uppercase text-white/40 font-bold border-b border-white/5 pb-2">
+                <h4 className={`font-cinzel text-xs tracking-[3px] uppercase font-bold border-b pb-2 ${
+                  theme === 'light' ? 'text-neutral-400 border-neutral-200' : 'text-white/40 border-white/5'
+                }`}>
                   {group.title}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {group.skills.map((skill) => (
                     <div 
                       key={skill.name}
-                      className="flex items-center gap-2.5 bg-white/[0.03] text-white/90 border border-white/10 shadow-lg rounded-lg px-4 py-2 text-xs font-semibold hover:-translate-y-0.5 hover:border-[#d4af37]/40 hover:bg-white/[0.05] transition-all cursor-default"
+                      className={`flex items-center gap-2.5 border shadow-lg rounded-lg px-4 py-2 text-xs font-semibold hover:-translate-y-0.5 hover:border-[#d4af37]/40 transition-all cursor-default ${
+                        theme === 'light'
+                          ? 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100/80'
+                          : 'bg-white/[0.03] text-white/90 border-white/10 hover:bg-white/[0.05]'
+                      }`}
                     >
                       {/* Premium gold bullet points instead of emojis */}
                       <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37] shadow-[0_0_5px_#d4af37]"></span>
@@ -1458,7 +1729,7 @@ export default function App() {
         </div>
       </div>
 
-      <CustomCursor />
+      <CustomCursor theme={theme} />
     </div>
   );
 }
